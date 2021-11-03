@@ -655,6 +655,20 @@ public final class ResolverScopeGraph: ResolverScope {
 
     private var graph = [String : Any?](minimumCapacity: 32)
     private var resolutionDepth: Int = 0
+
+    /// Use this to resolve multiple dependencies of an object you're creating within the same
+    /// graph scope.
+    /// - Parameter factory: Factory for a service not registered in Resolver
+    /// - Returns: An instance of your service
+    public final func resolveDependencies<Service>(_ factory: () -> Service) -> Service {
+      resolutionDepth = resolutionDepth + 1
+      let result = factory()
+      resolutionDepth = resolutionDepth - 1
+      if resolutionDepth == 0 {
+        graph.removeAll()
+      }
+      return result
+    }
 }
 
 /// Shared services persist while strong references to them exist. They're then deallocated until the next resolve.
