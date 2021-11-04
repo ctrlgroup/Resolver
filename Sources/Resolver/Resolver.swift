@@ -789,8 +789,7 @@ public extension UIViewController {
 ///
 @propertyWrapper public struct LazyInjected<Service> {
     private var lock = Resolver.lock
-    private var initialize: Bool = true
-    private var service: Service!
+    private var service: Box<Service?> = Box(nil)
     public var container: Resolver?
     public var name: Resolver.Name?
     public var args: Any?
@@ -802,33 +801,31 @@ public extension UIViewController {
     public var isEmpty: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return service == nil
+        return service.value == nil
     }
     public var wrappedValue: Service {
-        mutating get {
-            lock.lock()
-            defer { lock.unlock() }
-            if initialize {
-                self.initialize = false
-                self.service = container?.resolve(Service.self, name: name, args: args) ?? Resolver.resolve(Service.self, name: name, args: args)
-            }
-            return service
+        get {
+          lock.lock()
+          defer { lock.unlock() }
+          if service.value == nil {
+              service.value = container?.resolve(Service.self, name: name, args: args) ?? Resolver.resolve(Service.self, name: name, args: args)
+          }
+          return service.value!
         }
-        mutating set {
-            lock.lock()
-            defer { lock.unlock() }
-            initialize = false
-            service = newValue
+        set {
+          lock.lock()
+          defer { lock.unlock() }
+          service.value = newValue
         }
     }
     public var projectedValue: LazyInjected<Service> {
         get { return self }
-        mutating set { self = newValue }
+        set { self = newValue }
     }
-    public mutating func release() {
+    public func release() {
         lock.lock()
         defer { lock.unlock() }
-        self.service = nil
+        service.value = nil
     }
 }
 
@@ -904,3 +901,8 @@ public extension UIViewController {
 }
 #endif
 #endif
+
+class Box<T> {
+  var value: T
+  init(_ value: T) { self.value = value }
+}
